@@ -31,14 +31,18 @@ let compute_rotation so_far (turn, distance) =
   let rotation = turn * distance in
   so_far + rotation
 
-let solvePartOne instructions =
+let password_protocol (pointing, count) instruction =
+  let new_pointing = compute_rotation pointing instruction in
+  let new_count = if to_circle new_pointing = 0 then count + 1 else count in
+  (new_pointing, new_count)
+
+let solve f instructions =
   instructions
-  |> List.fold_left (fun (so_far, count) instruction ->
-         let new_pointing = compute_rotation so_far instruction in
-         let new_count = if to_circle new_pointing = 0 then count + 1 else count in
-         (new_pointing, new_count))
-       (50, 0)
+  |> List.fold_left f (50, 0)
   |> snd
+
+let solvePartOne instructions =
+  solve password_protocol instructions
 
 let password_method_0x434C49434B (pointing, count) (turn, distance) =
   let clicks = distance mod 100 * turn in
@@ -51,9 +55,7 @@ let password_method_0x434C49434B (pointing, count) (turn, distance) =
     (new_pointing + 100) mod 100, count + overflows + if pointing = 0 then 0 else 1
 
 let solvePartTwo instructions =
-  instructions
-  |> List.fold_left password_method_0x434C49434B (50, 0)
-  |> snd
+  solve password_method_0x434C49434B instructions
 
 let text = "L68\nL30\nR48\nL5\nR60\nL55\nL1\nL99\nR14\nL82"
 
@@ -64,7 +66,7 @@ let samplePartOne =
   |> solvePartOne
 
 let partOne =
-  read_lines "day01/input.txt"
+  read_lines "inputs/day01.txt"
   |> List.map parse_instruction
   |> solvePartOne
 
@@ -75,7 +77,7 @@ let samplePartTwo =
   |> solvePartTwo
 
 let partTwo =
-  read_lines "day01/input.txt"
+  read_lines "inputs/day01.txt"
   |> List.map parse_instruction
   |> solvePartTwo
 

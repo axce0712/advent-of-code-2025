@@ -111,6 +111,6 @@ let time f x =
 let (>>) f g x = g (f x)
 
 let () =
-  read_file "day02/input.txt"
+  read_file "inputs/day02.txt"
   |> (get_ranges >> time solve_part_two)
   |> Printf.printf "Part Two: %d\n"

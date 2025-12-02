@@ -1,3 +1,0 @@
-(executable
-  (name day02)
-  (libraries))
