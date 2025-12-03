@@ -1,42 +1,44 @@
+open System
 open System.IO
 
-let findHighest (batteryCount: int) (bank: list<int>) : (int * list<list<int>>) =
-    let rec imp ((rank, remaining) as acc) list =
-        if List.length list < batteryCount then
-            acc
+let findHighest (batteryCount: int) (bank: list<int>) : (int * list<int>) =
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero batteryCount
+    let rec loop (x, xs) remaining =
+        if List.length remaining < batteryCount then
+            x, xs
         else
-            match list with
-            | [] -> acc
-            | x :: xs when x > rank -> imp (x, [ xs ]) xs
-            | x :: xs when x = rank -> imp (rank, xs :: remaining) xs
-            | _ :: xs -> imp acc xs
+            let y :: ys = remaining
+            let acc = if y > x then y, ys else x, xs
+            loop acc ys
 
     if List.length bank < batteryCount then
         failwith "Not enough batteries"
     else
         let x :: xs = bank
-        imp (x, [ xs ]) xs
+        loop (x, xs) xs
 
-let rec largestPossibleJoltage (batteryCount: int) (bank: list<int>) : int64 =
-    if batteryCount = 0 then
-        0L
-    else
-        let rank, remaining = findHighest batteryCount bank
-        let acc = int64 rank * int64 (pown 10L (batteryCount - 1))
+let largestPossibleJoltage (batteryCount: int) (bank: list<int>) : int64 =
+    let rec loop acc (count: int) list =
+        if count = 0 then
+            acc
+        else
+            let rank, remaining = findHighest count list
+            let newAcc = acc + int64 rank * pown 10L (count - 1)
+            loop newAcc (count - 1) remaining
 
-        acc + (remaining |> Seq.map (largestPossibleJoltage (batteryCount - 1)) |> Seq.max)
+    loop 0 batteryCount bank
 
 let solve batteryCount banks =
     banks
     |> Seq.sumBy (largestPossibleJoltage batteryCount)
 
-do
-    let banks =
-        File.ReadLines "inputs/day03.txt"
-        |> Seq.map (fun str ->
-            str
-            |> Seq.map (fun c -> int c - int '0')
-            |> Seq.toList)
+let banks =
+    File.ReadLines "inputs/day03.txt"
+    |> Seq.map (fun str ->
+        str
+        |> Seq.map (fun c -> int c - int '0')
+        |> Seq.toList)
+    |> Seq.toList
 
-    printfn "Part One: %d" (solve 2 banks)
-    printfn "Part Two: %d" (solve 12 banks)
+printfn "Part One: %d" (solve 2 banks)
+printfn "Part Two: %d" (solve 12 banks)
