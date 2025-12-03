@@ -37,7 +37,8 @@ let invalid_ids low high =
   aux high [] low
 
 let get_ranges input =
-  input |> String.split_on_char ','
+  input
+  |> String.split_on_char ','
   |> List.map (fun range ->
          match String.split_on_char '-' range with
          | [ low; high ] -> (int_of_string low, int_of_string high)

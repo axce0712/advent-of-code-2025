@@ -27,9 +27,9 @@ let to_circle distance =
   else
     distance mod 100
 
-let compute_rotation so_far (turn, distance) =
+let compute_rotation pointing (turn, distance) =
   let rotation = turn * distance in
-  so_far + rotation
+  pointing + rotation
 
 let password_protocol (pointing, count) instruction =
   let new_pointing = compute_rotation pointing instruction in
