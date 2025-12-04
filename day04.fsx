@@ -13,6 +13,7 @@ let canAccess (dx, dy) (x, y) (arr: char [,]) =
         match arr.[ny, nx] with
         | '@' -> false
         | '.' -> true
+        | 'x' -> true
         | _ -> failwith "Invalid character"
 
 let directions =
@@ -25,26 +26,57 @@ let directions =
       (1, -1)
       (-1, -1) ]
 
+let isRollAvailable (arr: char [,]) (x, y) =
+    let rollCount =
+        directions
+        |> List.sumBy (fun (dx, dy) ->
+            if not <| canAccess (dx, dy) (x, y) arr then
+                1
+            else
+                0)
+
+    rollCount < 4
+
 let scan (arr: char [,]) =
     let set = HashSet<(int * int)>()
 
     for y in 0 .. Array2D.length1 arr - 1 do
         for x in 0 .. Array2D.length2 arr - 1 do
-            if arr.[y, x] = '@' then
-                let rollCount =
-                    directions
-                    |> List.sumBy (fun (dx, dy) ->
-                        if not <| canAccess (dx, dy) (x, y) arr then
-                            1
-                        else
-                            0)
-
-                if rollCount < 4 then
-                    set.Add(x, y) |> ignore
+            if arr.[y, x] = '@' && isRollAvailable arr (x, y) then
+                set.Add(x, y) |> ignore
 
     Set.ofSeq set
 
 let solvePartOne (arr: char [,]) = arr |> scan |> Set.count
+
+let findNextRolls (arr: char [,]) (x, y) =
+    directions
+    |> List.fold
+        (fun acc (dx, dy) ->
+            if not <| canAccess (dx, dy) (x, y) arr then
+                acc |> Set.add (x + dx, y + dy) 
+            else
+                acc
+        )
+        Set.empty
+
+let solvePartTwo (arr: char [,]) =
+    let copy = Array2D.copy arr
+    let mutable availableRolls = scan copy
+    let mutable removed = Set.count availableRolls
+    while Set.count availableRolls > 0 do
+        for x, y in availableRolls do
+            copy[y, x] <- 'x'
+
+        availableRolls <-
+            availableRolls
+            |> Seq.collect (findNextRolls copy)
+            |> Seq.filter (isRollAvailable copy)
+            |> Set.ofSeq
+
+        removed <- removed + Set.count availableRolls
+
+    removed
 
 let sample =
     "..@@.@@@@.
@@ -61,3 +93,4 @@ let sample =
 let input = File.ReadAllLines "inputs/day04.txt" |> array2D
 
 input |> solvePartOne
+input |> solvePartTwo
