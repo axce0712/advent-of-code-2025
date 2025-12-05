@@ -70,8 +70,7 @@ let solve_part_two (ranges : range list) =
         if Range.isOverlapping range r then
           aux (Range.merge range r) [] (remaining @ rs)
         else aux range (r :: remaining) rs
-    | [] ->
-        (range, remaining)
+    | [] -> (range, remaining)
   in
 
   let rec merge acc ranges =
@@ -90,4 +89,4 @@ let sample =
 let () =
   let ranges, ids = read_lines "inputs/day05.txt" |> parse in
   Printf.printf "Part one: %d\n" (solve_part_one ranges ids);
-  Printf.printf "Part two: %d\n" (solve_part_two ranges);
+  Printf.printf "Part two: %d\n" (solve_part_two ranges)
