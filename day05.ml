@@ -4,8 +4,28 @@ module Range = struct
   type t = range
 
   let create low high = { low; high }
+
   let contains id r = id >= r.low && id <= r.high
+
+  let isOverlapping r1 r2 =
+    r1.low <= r2.high && r2.low <= r1.high
+
+  let split_up (r1: range) (r2: range) : range list =
+    match compare r1.low r2.low, compare r1.high r2.high with
+    | -1, -1 -> [ r1; r2 ]
+    | -1,  0 -> [ create r1.low (r2.low - 1); r2; r2 ]
+    | -1,  1 -> [ create r1.low (r2.low - 1); r2; r2; create (r2.high + 1) r1.high ]
+    |  0,  0 -> [ r1; r1 ]
+    |  0, -1 -> [ r1; r1; create (r1.high + 1) r2.high ]
+    |  0,  1 -> [ r2; r2; create (r2.high + 1) r1.high ]
+    |  1, -1 -> [ create r2.low (r1.low - 1); r1; r1; create (r1.high + 1) r2.high ]
+    |  1,  0 -> [ create r2.low (r1.low - 1); r1; r1 ]
+    |  1,  1 -> [ r2; r1 ]
+    | _ -> failwith "unreachable"
+
+  let count r = r.high - r.low + 1
 end
+
 
 let read_lines filename =
   let lines = ref [] in
@@ -57,13 +77,31 @@ let solve_part_one (ranges : range list) (ids : int list) : int =
          if List.exists (Range.contains id) ranges then acc + 1 else acc)
        0
 
+let solve_part_two (ranges: range list) =
+  match ranges with
+  | [] -> []
+  | first_range :: rest_ranges ->
+    let splitted_ranges =
+      ranges
+      |> List.fold_left
+          (fun acc r1 -> acc |> List.concat_map (fun r2 -> Range.split_up r1 r2))
+          [first_range]
+    in
+
+    splitted_ranges
+(* 
+    spltted_ranges
+    |> List.fold_left (fun acc r -> acc + Range.count r) 0 *)
+
 let sample =
   "3-5\n10-14\n16-20\n12-18\n\n1\n5\n8\n11\n17\n32" |> String.split_on_char '\n'
 
 let () =
   let ranges, ids = sample |> parse in
-  Printf.printf "Part one: %d\n" (solve_part_one ranges ids)
+  Printf.printf "Part two: %d\n" (solve_part_two ranges)
 
 let () =
   let ranges, ids = read_lines "inputs/day05.txt" |> parse in
   Printf.printf "Part one: %d\n" (solve_part_one ranges ids)
+
+  
