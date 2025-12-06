@@ -12,12 +12,6 @@ module Range = struct
 
   let contains id r = id >= r.low && id <= r.high
   let is_overlapping r1 r2 = r1.low <= r2.high && r2.low <= r1.high
-
-  let merge (r1 : range) (r2 : range) : range =
-    if is_overlapping r1 r2 then
-      create (min r1.low r2.low) (max r1.high r2.high)
-    else invalid_arg "Ranges do not overlap"
-
   let count r = r.high - r.low + 1
 end
 
@@ -56,7 +50,11 @@ let solve_part_two ranges =
         match acc with
         | [] -> [ r ]
         | last :: rest ->
-            if Range.is_overlapping last r then Range.merge last r :: rest
+            if Range.is_overlapping last r then
+              let merged_range =
+                Range.create (min last.low r.low) (max last.high r.high)
+              in
+              merged_range :: rest
             else r :: acc)
       [] sorted
   in
