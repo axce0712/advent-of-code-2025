@@ -60,7 +60,10 @@ let parse_operations (line : string) =
     if pos <= 0 then acc
     else
       match rfind_operation_opt pos line with
-      | Some (op, pos) -> aux ((op, pos) :: acc) (pos.start_pos - 2)
+      | Some (op, pos) ->
+          (* Notice that every problem except the last problem has a space in
+             between, hence -2 after the last *)
+          aux ((op, pos) :: acc) (pos.start_pos - 2)
       | None -> acc
   in
   aux [] (String.length line - 1)
