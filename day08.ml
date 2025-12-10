@@ -20,72 +20,109 @@ let all_pairs lst =
   let rec aux acc = function
     | [] -> acc
     | x :: xs ->
-        let pairs = List.map (fun y -> (x, y, distance x y)) xs in
+        let pairs = List.map (fun y -> (x, y)) xs in
         aux (List.rev_append pairs acc) xs
   in
   aux [] lst
 
 let rank junction_boxes =
   junction_boxes |> all_pairs
+  |> List.map (fun (x, y) -> (x, y, distance x y))
   |> List.sort (fun (_, _, d1) (_, _, d2) -> Int.compare d1 d2)
 
-module BoxSet = Set.Make (struct
-  type t = int * int * int
+let index_of arr x =
+  match Array.find_index (( = ) x) arr with
+  | Some i -> i
+  | None -> failwith "Element not found"
 
-  let compare = compare
-end)
+let counts_of_array arr =
+  let tbl = Hashtbl.create 16 in
+  Array.iter
+    (fun x ->
+      Hashtbl.replace tbl x
+        (1 + Option.value (Hashtbl.find_opt tbl x) ~default:0))
+    arr;
+  Hashtbl.to_seq tbl |> List.of_seq
 
-let connect_opt boxes (b1, b2) =
-  match (BoxSet.mem b1 boxes, BoxSet.mem b2 boxes) with
-  | true, true -> Some boxes
-  | true, false -> Some (BoxSet.add b2 boxes)
-  | false, true -> Some (BoxSet.add b1 boxes)
-  | false, false -> None
+let solve n junction_boxes =
+  let ranked = rank junction_boxes in
+  let circuits = Array.of_list junction_boxes in
+  let connections = Array.init (Array.length circuits) (fun _ -> 0) in
+  let rec aux next_idx ranks =
+    match ranks with
+    | (b1, b2, d) :: rs -> (
+        let b1_idx = index_of circuits b1 in
+        let b2_idx = index_of circuits b2 in
 
-let connect_junction_boxes n boxes =
-  let rec aux acc (b1, b2) remaining =
-    match remaining with
-    | bs :: bss -> (
-        match connect_opt bs (b1, b2) with
-        | Some new_acc -> List.rev acc @ (new_acc :: bss)
-        | None -> aux (bs :: acc) (b1, b2) bss)
-    | [] -> List.rev ((BoxSet.empty |> BoxSet.add b1 |> BoxSet.add b2) :: acc)
+        match (Array.get connections b1_idx, Array.get connections b2_idx) with
+        | 0, 0 ->
+            Array.set connections b1_idx next_idx;
+            Array.set connections b2_idx next_idx;
+            aux (next_idx + 1) rs
+        | idx, 0 ->
+            Array.set connections b2_idx idx;
+            aux next_idx rs
+        | 0, idx ->
+            Array.set connections b1_idx idx;
+            aux next_idx rs
+        | idx1, idx2 ->
+            Array.iteri
+              (fun i x -> if x = idx2 then Array.set connections i idx1)
+              connections;
+            aux next_idx rs)
+    | [] -> ()
   in
 
-  let ranked_boxes = rank boxes in
+  aux 1 (List.take n ranked);
 
-  ranked_boxes |> List.take n
-  |> List.fold_left (fun acc (b1, b2, _) -> aux [] (b1, b2) acc) []
+  counts_of_array connections
+  |> List.sort (fun (idx1, c1) (idx2, c2) ->
+      match (idx1, idx2) with 0, _ -> 1 | _, 0 -> -1 | _ -> compare c2 c1)
+  |> List.take 3
+  |> List.fold_left (fun acc (_, count) -> acc * count) 1
 
-let solve_part_one lines =
-  let junction_boxes = parse lines in
-  let connected_junction_boxes = connect_junction_boxes 10 junction_boxes in
+let solve_part_one = solve 1000
 
-  connected_junction_boxes |> List.map BoxSet.cardinal |> List.sort Int.compare
-  |> List.rev
-(* |> List.take 3
-  |> List.fold_left (fun acc s -> acc * BoxSet.cardinal s) 1 *)
+let solve_part_two junction_boxes =
+  let ranked = rank junction_boxes in
+  let circuits = Array.of_list junction_boxes in
+  let connections = Array.init (Array.length circuits) (fun _ -> 0) in
+  let rec aux next_idx ranks =
+    match ranks with
+    | (b1, b2, d) :: rs -> (
+        let b1_idx = index_of circuits b1 in
+        let b2_idx = index_of circuits b2 in
 
-let sample =
-  "162,817,812\n\
-   57,618,57\n\
-   906,360,560\n\
-   592,479,940\n\
-   352,342,300\n\
-   466,668,158\n\
-   542,29,236\n\
-   431,825,988\n\
-   739,650,466\n\
-   52,470,668\n\
-   216,146,977\n\
-   819,987,18\n\
-   117,168,530\n\
-   805,96,715\n\
-   346,949,466\n\
-   970,615,88\n\
-   941,993,340\n\
-   862,61,35\n\
-   984,92,344\n\
-   425,690,689"
+        match (Array.get connections b1_idx, Array.get connections b2_idx) with
+        | 0, 0 ->
+            Array.set connections b1_idx next_idx;
+            Array.set connections b2_idx next_idx;
+            aux (next_idx + 1) rs
+        | idx, 0 ->
+            Array.set connections b2_idx idx;
+            aux next_idx rs
+        | 0, idx ->
+            Array.set connections b1_idx idx;
+            aux next_idx rs
+        | idx1, idx2 ->
+            Array.iteri
+              (fun i x -> if x = idx2 then Array.set connections i idx1)
+              connections;
 
-let lines = String.split_on_char '\n' sample solve_part_one lines
+            if Array.for_all (fun x -> x = idx1) connections then
+              let x1, _, _ = b1 in
+              let x2, _, _ = b2 in
+              x1 * x2
+            else aux next_idx rs)
+    | [] -> failwith "Unreachable"
+  in
+
+  aux 1 ranked
+
+let read_lines filename =
+  In_channel.with_open_bin filename In_channel.input_lines
+
+let () =
+  let junction_boxes = read_lines "inputs/day08.txt" |> parse in
+  Printf.printf "Part One: %d\n" (solve_part_one junction_boxes);
+  Printf.printf "Part Two: %d\n" (solve_part_two junction_boxes)
