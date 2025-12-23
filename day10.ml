@@ -1,115 +1,75 @@
 module IntSet = Set.Make (Int)
 
-let toggle buttons indicator_lights =
-  indicator_lights
-  |> String.mapi (fun i c ->
-      if IntSet.mem i buttons then
-        match c with
-        | '.' -> '#'
-        | '#' -> '.'
-        | _ -> failwith "Invalid character in indicator lights"
-      else c)
+let parse_indicator_lights input =
+  let acc = ref 0 in
+  String.iteri (fun i c -> if c = '#' then acc := !acc lor (1 lsl i)) input;
+  !acc
+
+let parse_buttons input =
+  input |> String.split_on_char ','
+  |> List.fold_left (fun acc part -> acc lor (1 lsl int_of_string part)) 0
+
+let toggle buttons indicator_lights = indicator_lights lxor buttons
 
 type machine = {
-  indicator_lights : string;
-  buttons : IntSet.t list;
-  joltage : int list;
+  indicator_lights : int;
+  buttons : IntSet.t;
+  joltage_requirements : int list;
 }
 
-let parse_line (line : string) =
-  let rec parse_buttons acc idx =
-    let rec aux acc (idx_start, idx_end) =
-      match String.index_from_opt line idx_start ',' with
-      | Some idx when idx < idx_end ->
-          let button =
-            String.sub line idx_start (idx - idx_start) |> int_of_string
-          in
-          aux (IntSet.add button acc) (idx + 1, idx_end)
-      | Some _ | None ->
-          let button =
-            String.sub line idx_start (idx_end - idx_start + 1) |> int_of_string
-          in
-          IntSet.add button acc
-    in
-
+let parse_machine (line : string) =
+  let rec aux acc idx =
     match String.index_from_opt line idx '(' with
-    | None -> (List.rev acc, idx)
+    | None -> (acc, idx)
     | Some start_idx ->
         let end_idx = String.index_from line start_idx ')' in
-        let buttons = aux IntSet.empty (start_idx + 1, end_idx - 1) in
-        parse_buttons (buttons :: acc) (end_idx + 2)
+        let buttons =
+          parse_buttons
+            (String.sub line (start_idx + 1) (end_idx - start_idx - 1))
+        in
+        aux (IntSet.add buttons acc) (end_idx + 2)
   in
 
   let idx_end_indicator_lights = String.index line ']' in
-  let indicator_lights = String.sub line 1 (idx_end_indicator_lights - 1) in
+  let indicator_lights =
+    String.sub line 1 (idx_end_indicator_lights - 1) |> parse_indicator_lights
+  in
 
   let buttons, idx_after_buttons =
-    parse_buttons [] (idx_end_indicator_lights + 2)
+    aux IntSet.empty (idx_end_indicator_lights + 2)
   in
 
   let idx_start_joltage = String.index line '{' in
   let idx_end_joltage = String.length line - 1 in
-  let joltage_str =
+  let joltage_requirements =
     String.sub line (idx_start_joltage + 1)
       (idx_end_joltage - idx_start_joltage - 1)
     |> String.split_on_char ',' |> List.map int_of_string
   in
 
-  { indicator_lights; buttons; joltage = joltage_str }
-
-type press_step = { previous_buttons : IntSet.t; indicator_lights : string }
-
-let next (machine : machine) (step : press_step) : press_step list =
-  machine.buttons
-  |> List.fold_left
-       (fun acc buttons ->
-         if IntSet.equal buttons step.previous_buttons then acc
-         else
-           let new_indicator_lights = toggle buttons step.indicator_lights in
-           {
-             previous_buttons = buttons;
-             indicator_lights = new_indicator_lights;
-           }
-           :: acc)
-       []
+  { indicator_lights; buttons; joltage_requirements }
 
 let fewest_total_presses (machine : machine) : int =
-  let rec aux presses steps =
-    let configured, next_steps =
-      steps
-      |> List.fold_left
-           (fun (configured, acc) step ->
-             if configured then (true, acc)
-             else
-               let step_next = next machine step in
-               let found =
-                 List.exists
-                   (fun s ->
-                     String.for_all (fun c -> c = '.') s.indicator_lights)
-                   step_next
-               in
+  let rec aux presses candidates =
+    if IntSet.mem machine.indicator_lights candidates then presses
+    else
+      let new_candidates =
+        IntSet.fold
+          (fun b1 acc ->
+            machine.buttons
+            |> IntSet.map (fun b2 -> b1 lxor b2)
+            |> IntSet.union acc)
+          candidates IntSet.empty
+      in
 
-               if found then (true, acc) else (false, step_next :: acc))
-           (false, [])
-    in
-
-    if configured then presses + 1
-    else aux (presses + 1) (List.flatten next_steps)
+      aux (presses + 1) new_candidates
   in
+  aux 0 (IntSet.empty |> IntSet.add 0)
 
-  let steps =
-    [
-      {
-        previous_buttons = IntSet.empty;
-        indicator_lights = machine.indicator_lights;
-      };
-    ]
-  in
-  aux 0 steps
-
-let solve (machines: machine list) : int =
-  List.map fewest_total_presses machines
-  |> List.fold_left (+) 0
+let solve_part_one (machines : machine list) : int =
+  List.fold_left
+    (fun acc machine -> acc + fewest_total_presses machine)
+    0 machines
 
 let read_lines filename =
   In_channel.with_open_bin filename In_channel.input_lines
@@ -122,5 +82,5 @@ let sample =
 let lines = String.split_on_char '\n' sample
 
 let () =
-  let machines = read_lines "inputs/day10.txt" |> List.map parse_line in
-  Printf.printf "Part One: %d\n" (solve machines);
+  let machines = read_lines "inputs/day10.txt" |> List.map parse_machine in
+  Printf.printf "Part One: %d\n" (solve_part_one machines)
